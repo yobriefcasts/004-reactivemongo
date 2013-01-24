@@ -3,9 +3,10 @@ package tv.yobriefcasts
 import reactivemongo.api.MongoConnection
 import reactivemongo.bson._
 import concurrent.ExecutionContext.Implicits._
-import reactivemongo.bson.handlers.DefaultBSONHandlers._
 import util.{Success, Failure}
 import concurrent.Future
+import reactivemongo.bson.handlers.DefaultBSONHandlers.DefaultBSONDocumentWriter
+import reactivemongo.bson.handlers.DefaultBSONHandlers.DefaultBSONReaderHandler
 
 object ReactiveMongoDemo extends App {
 
@@ -23,7 +24,9 @@ object ReactiveMongoDemo extends App {
     _ <- insertSingle;
     _ <- query;
     _ <- updateSingle;
-    _ <- delete
+    _ <- delete;
+    _ <- insertCaseClass;
+    _ <- readCaseClass
   ) yield println("Complete")
 
   /**
@@ -69,6 +72,7 @@ object ReactiveMongoDemo extends App {
    * Inserts a single record into the collection.
    */
   def insertSingle = {
+
     val document = BSONDocument(
       "name" -> BSONString("Face Cloth"),
       "quantity" -> BSONLong(5)
@@ -83,6 +87,8 @@ object ReactiveMongoDemo extends App {
    */
   def updateSingle = {
     println("Updating document")
+
+    implicit val reader = handlers.DefaultBSONHandlers.DefaultBSONDocumentReader
 
     val query = BSONDocument("name" -> BSONString("Helicopter"))
     val update = BSONDocument(
@@ -111,6 +117,8 @@ object ReactiveMongoDemo extends App {
   def query = {
     println("Querying database")
 
+    implicit val reader = handlers.DefaultBSONHandlers.DefaultBSONDocumentReader
+
     stockitems.find(
       BSONDocument( "quantity" -> BSONDocument("$gt" -> BSONLong(2)) )
     ).toList.map { found =>
@@ -126,6 +134,22 @@ object ReactiveMongoDemo extends App {
       "name" -> BSONString("Helicopter")
     ), firstMatchOnly = true) andThen { case _ =>
       println("Item deleted")
+    }
+  }
+
+  def insertCaseClass = {
+    import StockItem._
+    stockitems.insert(StockItem(None, "Asprin", 30)) andThen { case _ =>
+      println("Inserted Case Class")
+    }
+  }
+
+  def readCaseClass = {
+    implicit val reader = StockItem.StockItemBSONReader
+    stockitems.find(
+      BSONDocument("name" -> BSONString("Asprin"))
+    ).headOption andThen { case Success(Some(item)) =>
+      println(s"${item.name} - ${item.quantity}")
     }
   }
 
