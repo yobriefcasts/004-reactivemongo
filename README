@@ -1,5 +1,3 @@
-A sample for the Typesafe Stack (http://typesafe.com/stack).
+## 004-reactivemongo
 
-Scala sample project using Scala and SBT.
-
-To run and test it use SBT invoke: 'sbt run'
+Sample console app.
