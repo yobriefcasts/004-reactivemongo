@@ -7,12 +7,21 @@ import util.{Success, Failure}
 import concurrent.Future
 import reactivemongo.bson.handlers.DefaultBSONHandlers.DefaultBSONDocumentWriter
 import reactivemongo.bson.handlers.DefaultBSONHandlers.DefaultBSONReaderHandler
+import reactivemongo.api.gridfs.{DefaultFileToSave, GridFS}
+import java.io.File
+import play.api.libs.iteratee.Enumerator
+import reactivemongo.api.indexes.{IndexType, Index}
 
 object ReactiveMongoDemo extends App {
 
   val connection = MongoConnection(List("localhost:27017"))
   val database = connection("reactivemongodemo")
   val stockitems = database("stockitems")
+  val images = new GridFS(database, "images")
+
+  stockitems.indexesManager.create(
+    Index("name" -> IndexType.Ascending :: Nil, unique = true)
+  )
 
   /**
    * We want to execute these commands in sequence so use a
@@ -22,11 +31,13 @@ object ReactiveMongoDemo extends App {
     _ <- dropDatabase;
     _ <- seed;
     _ <- insertSingle;
+    _ <- breakIndex;
     _ <- query;
     _ <- updateSingle;
     _ <- delete;
     _ <- insertCaseClass;
-    _ <- readCaseClass
+    _ <- readCaseClass;
+    _ <- insertFile
   ) yield println("Complete")
 
   /**
@@ -46,6 +57,7 @@ object ReactiveMongoDemo extends App {
    */
   def seed = {
     println("Inserting documents")
+
 
     val documents = BSONDocument(
       "name" -> BSONString("Toothpaste"),
@@ -79,6 +91,18 @@ object ReactiveMongoDemo extends App {
     )
 
     stockitems.insert(document)
+  }
+
+  def breakIndex = {
+    println("Breaking Index")
+    val document = BSONDocument(
+      "name" -> BSONString("Helicopter"),
+      "quantity" -> BSONLong(7)
+    )
+
+    stockitems.insert(document) recover { case error =>
+      println(s"As expected we got an error: ${error.getMessage}")
+    }
   }
 
   /**
@@ -153,6 +177,24 @@ object ReactiveMongoDemo extends App {
     }
   }
 
+  def insertFile = {
+    import reactivemongo.api.gridfs.Implicits._
+    val file = new File("image.png")
+    val enum = Enumerator.fromFile(file)
+
+    images.save(enum, DefaultFileToSave("image.png")) andThen { case _ =>
+      println("File saved")
+    }
+  }
+
+  def getFile = {
+    import reactivemongo.api.gridfs.Implicits._
+    images.find(BSONDocument("filename" -> BSONString("image.png"))).headOption.map { maybeFile =>
+      maybeFile.map { file =>
+        file.
+      }
+    }
+  }
 }
 
 
