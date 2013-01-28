@@ -179,15 +179,13 @@ object ReactiveMongoDemo extends App {
 
   def insertFile = {
     import reactivemongo.api.gridfs.Implicits._
-    import concurrent.duration._
+
     val file = new File("image.png")
     val enum = Enumerator.fromFile(file)
 
-    Await.result(
     images.save(enum, DefaultFileToSave(file.getName)) andThen { case t =>
-
       println(s"File ${if(t.isFailure) "not" else ""} saved")
-    }, 5 seconds)
+    }
   }
 
   def getFile = {
@@ -199,12 +197,12 @@ object ReactiveMongoDemo extends App {
     images.find(BSONDocument("filename" -> BSONString("image.png"))).headOption.map { maybeFile =>
       maybeFile.map { file =>
 
-        images.enumerate(file).map { bytes =>
-          val stream = new FileOutputStream(s"${file.id.toString}.png")
-          stream.write(bytes)
-          stream.close()
+        val filename = s"${file.id.asInstanceOf[BSONObjectID].stringify}.png"
+        val stream = new FileOutputStream(filename)
 
-          print(s"Written ${file.id.toString}.png")
+        images.readToOutputStream(file, stream) andThen { case _ =>
+          print(s"Written $filename")
+          stream.close
         }
       } getOrElse {
         println(":(")
