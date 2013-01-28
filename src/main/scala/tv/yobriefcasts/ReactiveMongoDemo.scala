@@ -4,20 +4,20 @@ import reactivemongo.api.MongoConnection
 import reactivemongo.bson._
 import concurrent.ExecutionContext.Implicits._
 import util.{Success, Failure}
-import concurrent.Future
+import concurrent.{Await, Future}
 import reactivemongo.bson.handlers.DefaultBSONHandlers.DefaultBSONDocumentWriter
 import reactivemongo.bson.handlers.DefaultBSONHandlers.DefaultBSONReaderHandler
 import reactivemongo.api.gridfs.{DefaultFileToSave, GridFS}
-import java.io.File
+import java.io.{FileOutputStream, File}
 import play.api.libs.iteratee.Enumerator
 import reactivemongo.api.indexes.{IndexType, Index}
 
 object ReactiveMongoDemo extends App {
 
   val connection = MongoConnection(List("localhost:27017"))
-  val database = connection("reactivemongodemo")
+  val database   = connection("reactivemongodemo")
   val stockitems = database("stockitems")
-  val images = new GridFS(database, "images")
+  val images     = new GridFS(database, "images")
 
   stockitems.indexesManager.create(
     Index("name" -> IndexType.Ascending :: Nil, unique = true)
@@ -37,7 +37,8 @@ object ReactiveMongoDemo extends App {
     _ <- delete;
     _ <- insertCaseClass;
     _ <- readCaseClass;
-    _ <- insertFile
+    _ <- insertFile;
+    _ <- getFile
   ) yield println("Complete")
 
   /**
@@ -57,7 +58,6 @@ object ReactiveMongoDemo extends App {
    */
   def seed = {
     println("Inserting documents")
-
 
     val documents = BSONDocument(
       "name" -> BSONString("Toothpaste"),
@@ -179,19 +179,35 @@ object ReactiveMongoDemo extends App {
 
   def insertFile = {
     import reactivemongo.api.gridfs.Implicits._
+    import concurrent.duration._
     val file = new File("image.png")
     val enum = Enumerator.fromFile(file)
 
-    images.save(enum, DefaultFileToSave("image.png")) andThen { case _ =>
-      println("File saved")
-    }
+    Await.result(
+    images.save(enum, DefaultFileToSave(file.getName)) andThen { case t =>
+
+      println(s"File ${if(t.isFailure) "not" else ""} saved")
+    }, 5 seconds)
   }
 
   def getFile = {
+
+    println("Getting file")
+
     import reactivemongo.api.gridfs.Implicits._
+
     images.find(BSONDocument("filename" -> BSONString("image.png"))).headOption.map { maybeFile =>
       maybeFile.map { file =>
-        file.
+
+        images.enumerate(file).map { bytes =>
+          val stream = new FileOutputStream(s"${file.id.toString}.png")
+          stream.write(bytes)
+          stream.close()
+
+          print(s"Written ${file.id.toString}.png")
+        }
+      } getOrElse {
+        println(":(")
       }
     }
   }
