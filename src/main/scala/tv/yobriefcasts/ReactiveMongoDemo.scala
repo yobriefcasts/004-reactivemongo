@@ -11,6 +11,7 @@ import reactivemongo.api.gridfs.{DefaultFileToSave, GridFS}
 import java.io.{FileOutputStream, File}
 import play.api.libs.iteratee.Enumerator
 import reactivemongo.api.indexes.{IndexType, Index}
+import reactivemongo.core.commands.Count
 
 object ReactiveMongoDemo extends App {
 
@@ -30,7 +31,9 @@ object ReactiveMongoDemo extends App {
   for (
     _ <- dropDatabase;
     _ <- seed;
+    _ <- bulkSeed;
     _ <- insertSingle;
+    _ <- countCollection;
     _ <- breakIndex;
     _ <- query;
     _ <- updateSingle;
@@ -80,6 +83,29 @@ object ReactiveMongoDemo extends App {
     }
   }
 
+  def bulkSeed = {
+    println("Bulk inserting")
+
+    val documents = Enumerator(
+      BSONDocument(
+        "name" -> BSONString("Shampoo"),
+        "quantity" -> BSONLong(1)
+      ), BSONDocument(
+        "name" -> BSONString("Conditioner"),
+        "quantity" -> BSONLong(3)
+      ), BSONDocument(
+        "name" -> BSONString("Shaving Foam"),
+        "quantity" -> BSONLong(3)
+      ), BSONDocument(
+        "name" -> BSONString("Dental Floss"),
+        "quantity" -> BSONLong(7)
+      ))
+
+    stockitems.insert(documents, 4) andThen { case _ =>
+      println("Bulk insert complete")
+    }
+  }
+
   /**
    * Inserts a single record into the collection.
    */
@@ -91,6 +117,12 @@ object ReactiveMongoDemo extends App {
     )
 
     stockitems.insert(document)
+  }
+
+  def countCollection = {
+    database.command(Count(stockitems.name)).map { count =>
+      println(s"$count stock items")
+    }
   }
 
   def breakIndex = {
