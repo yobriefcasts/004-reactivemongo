@@ -1,4 +1,4 @@
-package tv.yobriefcasts
+package tv.yobriefcasts.models
 
 import reactivemongo.bson.{BSONLong, BSONString, BSONDocument, BSONObjectID}
 import reactivemongo.bson.handlers.{BSONWriter, BSONReader}

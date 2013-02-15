@@ -1,5 +1,6 @@
 package tv.yobriefcasts
 
+import models.StockItem
 import reactivemongo.api.MongoConnection
 import reactivemongo.bson._
 import concurrent.ExecutionContext.Implicits._
