@@ -13,6 +13,7 @@ import java.io.{FileOutputStream, File}
 import play.api.libs.iteratee.Enumerator
 import reactivemongo.api.indexes.{IndexType, Index}
 import reactivemongo.core.commands.Count
+import concurrent.duration._
 
 object ReactiveMongoDemo extends App {
 
@@ -29,7 +30,7 @@ object ReactiveMongoDemo extends App {
    * We want to execute these commands in sequence so use a
    * for-comprehension to achieve this
    */
-  for (
+  val result = for (
     _ <- dropDatabase;
     _ <- seed;
     _ <- bulkSeed;
@@ -45,6 +46,10 @@ object ReactiveMongoDemo extends App {
     _ <- getFile
   ) yield println("Complete")
 
+  Await.ready(result, 10 seconds)
+  Await.ready(connection.askClose()(10 seconds), 10 seconds)
+  sys.exit(0)
+  
   /**
    * Drops the database entirely
    */
